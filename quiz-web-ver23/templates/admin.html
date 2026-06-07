@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>司会者画面</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+    <!-- Socket.IO と QRCode -->
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        /* ▼ index と同じ：背景を正しくフィットさせるために必須 ▼ */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ▼ Safari のタイル化バグ対策（絶対必要） ▼ */
+        body {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed;
+            color: white;
+            font-family: sans-serif;
+            text-align: center;
+        }
+
+        /* ▼ 初期背景（index と同じ inline-style 方式に変更） ▼ */
+        body.start_page {
+            background-image: url("/static/img/back1.png");
+        }
+
+        /* ▼ メイン背景（index と同じ inline-style 方式に変更） ▼ */
+        body.main_page {
+            background-image: url("/static/img/back2.png");
+        }
+
+        /* ▼ QRコード部分 ▼ */
+        #qr_area {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0,0,0,0.85);
+            padding: 40px;
+            border-radius: 20px;
+            display: none;
+        }
+
+        #qrcode {
+            width: 600px !important;
+            height: 600px !important;
+        }
+
+        #qr_url {
+            margin-top: 20px;
+            font-size: 28px;
+            color: #0ff;
+        }
+
+        /* ▼スタートページの 操作ボタン ▼ */
+#start_page button {
+    background-color: #ff4d4d;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+#control button,
+#start_page button {
+    cursor: pointer;
+}
+
+
+
+
+/* ▼ 操作ボタン ▼ */
+#control {
+    position: fixed;
+    top: 0;
+    right: 0;
+    padding: 10px;
+    text-align: right;
+    display: none;
+}
+
+#control button {
+    display: block;
+    margin: 5px 0;
+    padding: 10px 20px;
+    font-size: 20px;
+    background: buttonface;
+    color: buttontext;
+    border: 1px solid #666;
+    border-radius: 4px;
+    box-shadow: none;
+}
+#control button {
+    background-color: #ff4d4d !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3) !important;
+    font-size: 20px !important;
+    padding: 10px 20px !important;
+}
+
+#go_ranking_button {
+    background: yellow !important;
+    color: black !important;
+}
+
+#final_button {
+    background: yellow !important;
+    color: black !important;
+}
+
+
+
+
+        /* ▼ ステージ表示 ▼ */
+        #stage_box {
+            margin-top: 150px;
+            font-size: 40px;
+            display: none;
+            padding: 40px;
+            border-radius: 20px;
+            background: rgba(0,0,0,0.55);
+        }
+
+        /* ▼ 問題文カード ▼ */
+        /* ▼ 問題文カード ▼ */
+#question {
+    display: none;
+    width: fit-content;
+    max-width: 90%;
+    background: #ffffff;
+    color: #000000;
+    padding: 20px 30px;
+    border-radius: 16px;
+    border: 3px solid #333;
+    box-shadow: 0 0 18px rgba(0,0,0,0.6);
+    font-size: 32px;
+    font-weight: bold;
+    margin: 40px auto 20px auto;
+}
+
+
+        /* ▼ 選択肢グリッド ▼ */
+        #choices_grid {
+            display: none;
+            margin-top: 20px;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            width: 95%;
+            max-width: 1100px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .choice_btn {
+            padding: 28px 24px;
+            font-size: 40px;
+            background: #ffffff;
+            border: 3px solid #333;
+            border-radius: 20px;
+            color: #000000;
+            box-shadow: 0 0 22px rgba(0,0,0,0.6);
+
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+
+            min-height: 260px;
+            max-height: 350px;
+            overflow: hidden;
+        }
+.choice_btn {
+    position: relative; /* ← 追加（安全） */
+}
+
+
+        .choice_label_row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .choice_mark {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffffff;
+            flex-shrink: 0;
+        }
+
+        .choice_mark_A { background-color: #007bff; }
+        .choice_mark_B { background-color: #ff3b30; }
+        .choice_mark_C { background-color: #34c759; }
+        .choice_mark_D { background-color: #ffcc00; }
+
+        .choice_label_text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #000000;
+        }
+
+        .choice_img {
+            margin-top: 10px;
+            max-height: 200px;
+            max-width: 100%;
+            width: auto;
+            border-radius: 12px;
+            object-fit: contain;
+            align-self: center;
+        }
+
+        .choice_text_only {
+            margin-top: 10px;
+            font-size: 40px;
+            color: #000000;
+        }
+
+.vote_count {
+    position: absolute; /* ← 左下固定に必要 */
+    left: 20px;
+    bottom: 20px;
+    margin: 0;          /* ← margin-top を無効化 */
+    font-size: 30px;
+    color: #ff4444;
+    font-weight: bold;
+}
+
+        .correct_choice {
+            border: 4px solid yellow !important;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; transform: scale(1.0); }
+            50% { opacity: 0.2; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1.0); }
+        }
+        /* ▼ ランキング ▼ */
+        #ranking_title {
+            margin-top: 40px;
+            font-size: 50px;
+            display: none;
+        }
+
+        #ranking {
+            margin-top: 160px;
+            height: calc(100vh - 300px);
+            display: none;
+            flex-direction: column-reverse;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        #final_ranking_title {
+            margin-top: 40px;
+            font-size: 50px;
+            display: none;
+        }
+
+        #final_ranking {
+            margin-top: 80px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            display: none;
+            flex-direction: column-reverse;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+.rank_item {
+    width: 60%;
+    max-width: 900px;
+    margin: 4px auto;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: linear-gradient(90deg, rgba(0,40,80,0.9), rgba(0,120,200,0.9));
+    border-radius: 14px;
+    border: 2px solid rgba(0, 255, 255, 0.8);
+    box-shadow: 0 0 18px rgba(0, 200, 255, 0.7);
+    font-size: 24px;
+    opacity: 0;
+    transform: translateY(200px);
+    animation: slideUp 0.5s forwards;
+
+    /* ▼ 追加：文字を光らせる ▼ */
+    color: #00eaff;
+    text-shadow: 0 0 6px #00eaff, 0 0 12px #00eaff;
+}
+
+/* ▼ 1位だけ金色に光らせる ▼ */
+.rank_item.rank_1 {
+    color: #ffd700;
+    text-shadow: 0 0 8px #ffd700, 0 0 16px #ffea00;
+}
+
+.rank_item.rank_2 {
+    color: #ff4444;
+    text-shadow: 0 0 6px #ff4444, 0 0 12px #ff4444, 0 0 20px #ff0000;
+    border-color: #ff4444;
+    box-shadow: 0 0 20px rgba(255, 80, 80, 0.9);
+}
+.rank_item.rank_3 {
+    color: #44ff44;
+    text-shadow: 0 0 6px #44ff44, 0 0 12px #44ff44, 0 0 20px #00ff00;
+    border-color: #44ff44;
+    box-shadow: 0 0 20px rgba(80, 255, 80, 0.9);
+}
+
+#final_ranking .rank_item.rank_1 {
+    transform: translateY(200px) scale(1.5);
+    z-index: 10;
+}
+
+#final_ranking .rank_item.rank_2 {
+    transform: translateY(200px) scale(1.5);
+    z-index: 10;
+}
+#final_ranking .rank_item.rank_3 {
+    transform: translateY(200px) scale(1.5);
+    z-index: 10;
+}
+
+
+/* ▼ 子要素も同じ色を継承 ▼ */
+.rank_no, .rank_name, .rank_time {
+    color: inherit;
+    font-weight: bold;
+}
+#ranking_title,
+#final_ranking_title {
+    color: #ffffff; /* 白 */
+    font-weight: bold;
+    text-shadow:
+        -3px -3px 0 #ff0000,
+         3px -3px 0 #ff0000,
+        -3px  3px 0 #ff0000,
+         3px  3px 0 #ff0000,
+         0px  0px 12px #ff0000; /* 赤い光 */
+}
+
+        .rank_item.rank_1 {
+            border-color: #ffd700;
+            box-shadow: 0 0 26px rgba(255, 215, 0, 0.9);
+        }
+
+        @keyframes slideUp {
+            0% { opacity: 0; transform: translateY(200px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        #reset_button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 22px;
+            font-size: 18px;
+            background: #444;
+            color: white;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            cursor: pointer;
+            opacity: 0.8;
+            z-index: 9999;
+            display: none;
+        }
+
+/* FINAL 1位専用：薬玉＋大量紙吹雪（永続） */
+.celebrate_effect {
+    position: relative;
+    overflow: visible;
+}
+
+.celebrate_effect::before,
+.celebrate_effect::after {
+    content: "🎊";
+    position: absolute;
+    top: -60px;
+    font-size: 70px;
+    opacity: 1;
+    animation: kusudamaOpen 1.2s ease-out forwards;
+    z-index: 9999;
+}
+
+.celebrate_effect::before { left: -40px; }
+.celebrate_effect::after  { right: -40px; }
+
+
+@keyframes kusudamaOpen {
+    0% { transform: scale(0.3) translateY(0); opacity: 0; }
+    20% { transform: scale(1.4) translateY(-20px); opacity: 1; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* 紙吹雪（大量・永続） */
+.confetti_stream {
+    position: fixed;
+    top: -20px;
+    width: 8px;
+    height: 14px;
+    opacity: 0.9;
+    z-index: 9999;
+    animation: confettiFall 6s linear infinite;
+}
+
+@keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(120vh) rotate(720deg); }
+}
+
+
+
+
+
+
+    </style>
+</head>
+
+<body class="start_page">
+<!-- ▼ 開始ページ ▼ -->
+<div id="start_page" style="margin-top:450px;">
+    <button onclick="goQR()" style="padding:20px 60px;font-size:40px;border-radius:20px;">START</button>
+</div>
+
+<!-- ▼ QRコード ▼ -->
+<div id="qr_area">
+    <h2>参加者用 QR コード</h2>
+    <div id="qrcode"></div>
+    <div id="qr_url"></div>
+</div>
+
+<!-- ▼ 操作ボタン ▼ -->
+<div id="control">
+    <button onclick="nextStage()">NEXT</button>
+    <button onclick="finishQuiz()">CLOSE</button>
+</div>
+
+<button id="reset_button" onclick="resetQuiz()">Reset</button>
+
+<!-- ▼ ステージ表示 ▼ -->
+<div id="stage_box">
+    <div id="stage_title"></div>
+    <div id="stage_text"></div>
+</div>
+
+<!-- ▼ 問題文カード ▼ -->
+<div id="question"></div>
+
+<!-- ▼ 選択肢グリッド ▼ -->
+<div id="choices_grid"></div>
+
+<!-- ▼ ランキング ▼ -->
+<h2 id="ranking_title">ランキング</h2>
+<div id="ranking"></div>
+
+<!-- ▼ 総合ランキング ▼ -->
+<h2 id="final_ranking_title">総合ランキング</h2>
+<div id="final_ranking"></div>
+
+<script>
+    const joinUrl = window.location.origin;
+
+    function setBackgroundMain(){
+        document.body.style.backgroundImage = 'url("/static/img/back2.png")';
+    }
+
+    function setBackgroundStart(){
+        document.body.style.backgroundImage = 'url("/static/img/back1.png")';
+    }
+
+    setBackgroundStart();
+
+    function goQR(){
+        setBackgroundMain();
+
+        document.getElementById("start_page").style.display = "none";
+        document.getElementById("qr_area").style.display = "block";
+        document.getElementById("control").style.display = "block";
+        document.getElementById("reset_button").style.display = "block";
+    }
+
+    new QRCode(document.getElementById("qrcode"), {
+        text: joinUrl,
+        width: 600,
+        height: 600
+    });
+    document.getElementById("qr_url").textContent = joinUrl;
+
+    const socket = io({ transports: ["polling"] });
+
+    let currentStage = 0;
+
+    function nextStage(){ socket.emit("next_stage"); }
+    function finishQuiz(){ socket.emit("finish_quiz"); }
+
+    function removeFinalButton(){
+        const btn = document.getElementById("final_button");
+        if(btn) btn.remove();
+    }
+
+    function showFinalButton(){
+        removeFinalButton();
+        const btn = document.createElement("button");
+        btn.id = "final_button";
+        btn.textContent = "FINAL";
+        btn.style.background = "yellow";
+        btn.style.color = "black";
+        btn.style.fontWeight = "bold";
+        btn.style.marginTop = "10px";
+        btn.onclick = () => socket.emit("next_stage");
+        document.getElementById("control").appendChild(btn);
+    }
+
+    function showResultButton(){
+        const old = document.getElementById("result_button");
+        if(old) old.remove();
+
+        const btn = document.createElement("button");
+        btn.id = "result_button";
+        btn.textContent = "RESULT";
+        btn.style.background = "#f00";
+        btn.style.color = "#fff";
+        btn.style.fontWeight = "bold";
+        btn.style.fontSize = "26px";
+        btn.style.marginTop = "10px";
+        btn.style.padding = "10px 30px";
+
+        btn.onclick = () => {
+            socket.emit("show_correct");
+            btn.remove();
+        };
+
+        document.getElementById("control").appendChild(btn);
+    }
+
+    function showGoRankingButton(){
+        const old = document.getElementById("go_ranking_button");
+        if(old) old.remove();
+
+        const btn = document.createElement("button");
+        btn.id = "go_ranking_button";
+        btn.textContent = "RANK";
+        btn.style.background = "yellow";
+        btn.style.color = "red";
+        btn.style.fontWeight = "bold";
+        btn.style.fontSize = "26px";
+        btn.style.marginTop = "10px";
+        btn.style.padding = "10px 30px";
+
+        btn.onclick = () => {
+            socket.emit("finish_quiz_after_vote");
+            btn.remove();
+        };
+
+        document.getElementById("control").appendChild(btn);
+    }
+
+    const markMap = { "A": "1", "B": "2", "C": "3", "D": "4" };
+
+    socket.on("show_stage", data => {
+        currentStage = data.stage;
+
+        setBackgroundMain();
+
+        document.getElementById("qr_area").style.display = "none";
+        document.getElementById("question").style.display = "none";
+        document.getElementById("choices_grid").style.display = "none";
+        document.getElementById("ranking_title").style.display = "none";
+        document.getElementById("ranking").style.display = "none";
+        document.getElementById("final_ranking_title").style.display = "none";
+        document.getElementById("final_ranking").style.display = "none";
+
+        const box = document.getElementById("stage_box");
+        const title = document.getElementById("stage_title");
+        const text = document.getElementById("stage_text");
+
+        box.style.display = "block";
+
+        if(currentStage === 1){
+            title.innerText = "新郎新婦クイズ";
+            text.innerHTML = `
+                <div style="text-align:left; display:inline-block;">
+                    <p>1. 早押しクイズです</p>
+                    <p>2. 正解すると点数が入ります、各問題のTOP3は配点が少し高いです</p>
+                    <p>3. 総得点が同点の場合、回答総タイムが短い方が順位が上です</p>
+                    <p>4. 上位3名に豪華景品を用意しています</p>
+                </div>
+            `;
+        }
+        else if(currentStage === 2){
+            title.innerText = "練習問題";
+            text.innerHTML = "これから練習問題を1問出します。";
+        }
+        else if(currentStage === 4){
+            title.innerText = "本問題";
+            text.innerHTML = "ここから本番5問が始まります。";
+        }
+    });
+
+    socket.on("show_question", data => {
+        currentStage = data.stage;
+
+        setBackgroundMain();
+
+        document.getElementById("stage_box").style.display = "none";
+        document.getElementById("ranking_title").style.display = "none";
+        document.getElementById("ranking").style.display = "none";
+
+        const q = document.getElementById("question");
+        q.style.display = "block";
+        q.textContent = data.text;
+
+        const grid = document.getElementById("choices_grid");
+        grid.style.display = "grid";
+
+        let html = "";
+
+        for(const key in data.choices){
+            const v = data.choices[key];
+            const num = markMap[key];
+
+            html += `
+    <div class="choice_btn" id="choice_${key}">
+
+        ${
+            v.img
+            ? `
+                <div class="choice_label_row">
+                    <div class="choice_mark choice_mark_${key}">
+                        ${num}
+                    </div>
+                    <div class="choice_label_text">${v.label}</div>
+                </div>
+                <img src="${v.img}" class="choice_img">
+            `
+            : `
+                <div class="choice_label_row">
+                    <div class="choice_mark choice_mark_${key}">
+                        ${num}
+                    </div>
+                </div>
+                <div class="choice_text_only"><b>${v.label}</b></div>
+            `
+        }
+
+    </div>
+`;
+
+
+        }
+
+        grid.innerHTML = html;
+    });
+
+    socket.on("vote_result", vote => {
+        for(const key in vote){
+            const div = document.getElementById("choice_" + key);
+            if(div){
+                div.innerHTML += `<div class="vote_count">投票数：${vote[key]}</div>`;
+            }
+        }
+        showResultButton();
+    });
+
+    socket.on("correct_choice", data => {
+        const correct = data.correct_choice;
+
+        if(correct === "ALL"){
+            document.querySelectorAll(".choice_btn").forEach(div => {
+                div.classList.add("correct_choice");
+            });
+            showGoRankingButton();
+            return;
+        }
+
+        const div = document.getElementById("choice_" + correct);
+        if(div){
+            div.classList.add("correct_choice");
+        }
+
+        showGoRankingButton();
+    });
+
+    socket.on("ranking", list => {
+        document.getElementById("question").style.display = "none";
+        document.getElementById("choices_grid").style.display = "none";
+        document.getElementById("ranking_title").style.display = "block";
+
+        const container = document.getElementById("ranking");
+        container.style.display = "flex";
+        container.innerHTML = "";
+
+        const total = Math.min(list.length, 10);
+        const reversed = [...list].slice(0, total).reverse();
+
+        let index = 0;
+
+        function showNext(){
+            if(index >= reversed.length){
+                if(currentStage === 9){
+                    showFinalButton();
+                }
+                return;
+            }
+
+            const item = reversed[index];
+            const rank = total - index;
+
+            const div = document.createElement("div");
+            div.classList.add("rank_item");
+            if(rank === 1){
+    div.classList.add("rank_1");
+    div.style.animation = "blink 1s infinite, slideUp 0.5s forwards";
+} else if(rank === 2){
+    div.classList.add("rank_2");
+} else if(rank === 3){
+    div.classList.add("rank_3");
+}
+
+            div.innerHTML = `
+                <div class="rank_no">${rank}位</div>
+                <div class="rank_name">${item.name}</div>
+                <div class="rank_time">${item.time.toFixed(3)} 秒</div>
+            `;
+
+            container.appendChild(div);
+            index++;
+
+            let delay = 600;
+            if(rank <= 4 && rank >= 3) delay = 1200;
+            if(rank === 2) delay = 1600;
+            if(rank === 1) delay = 2500;
+
+            setTimeout(showNext, delay);
+        }
+
+        showNext();
+    });
+
+    socket.on("final_ranking", list => {
+        document.getElementById("ranking_title").style.display = "none";
+        document.getElementById("ranking").style.display = "none";
+
+        const container = document.getElementById("final_ranking");
+        container.style.display = "flex";
+        container.innerHTML = "";
+
+        document.getElementById("final_ranking_title").style.display = "block";
+
+        const total = Math.min(list.length, 10);
+        const reversed = [...list].slice(0, total).reverse();
+
+        let index = 0;
+
+        function showNext(){
+            if(index >= reversed.length) return;
+
+            const item = reversed[index];
+            const rank = total - index;
+
+            const div = document.createElement("div");
+            div.classList.add("rank_item");
+            if(rank === 1){
+    div.classList.add("rank_1");
+    div.style.animation = "slideUp 0.5s forwards";  // ← 点滅削除
+    div.classList.add("celebrate_effect");          // ← 祝い玉パーン追加
+    startConfetti();
+} else if(rank === 2){
+    div.classList.add("rank_2");
+} else if(rank === 3){
+    div.classList.add("rank_3");
+}
+
+
+            div.innerHTML = `
+                <div class="rank_no">${rank}位</div>
+                <div class="rank_name">${item.name}</div>
+                <div class="rank_time">${item.points.toFixed(1)} pt</div>
+            `;
+
+            container.appendChild(div);
+            index++;
+
+            let delay = 900;
+            if(rank <= 4 && rank >= 3) delay = 1500;
+            if(rank === 2) delay = 2000;
+            if(rank === 1) delay = 3000;
+
+            setTimeout(showNext, delay);
+        }
+
+        showNext();
+    });
+
+    function resetQuiz(){
+        if(confirm("本当にリセットしますか？\n（全ての進行状況が消えます）")){
+            socket.emit("reset_quiz");
+        }
+    }
+
+    socket.on("quiz_reset", () => {
+        location.reload();
+    });
+
+
+
+function startConfetti(){
+    // すでに開始していたら二重に生成しない
+    if(window.confettiStarted) return;
+    window.confettiStarted = true;
+
+    setInterval(() => {
+        for(let i = 0; i < 10; i++){  // ← 毎回10個生成（永続）
+            const c = document.createElement("div");
+            c.classList.add("confetti_stream");
+
+            // ランダム色
+            const colors = ["#ff4d4d", "#ffd11a", "#4dff4d", "#4dd2ff", "#b84dff", "#ffffff"];
+            c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+
+            // ランダム位置
+            c.style.left = Math.random() * 100 + "vw";
+
+            // ランダム速度
+            c.style.animationDuration = (4 + Math.random() * 3) + "s";
+
+            document.body.appendChild(c);
+
+            // 画面外に落ちたら削除
+            setTimeout(() => c.remove(), 7000);
+        }
+    }, 300); // ← 0.3秒ごとに紙吹雪を追加（永続）
+}
+
+
+</script>
+
+</body>
+</html>

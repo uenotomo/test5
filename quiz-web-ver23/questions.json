@@ -1,0 +1,63 @@
+[
+    {
+        "text": "本日の日付は？",
+        "choices": {
+            "A": { "label": "6月13日", "img": null },
+            "B": { "label": "6月14日", "img": null },
+            "C": { "label": "6月15日", "img": null },
+            "D": { "label": "6月16日", "img": null }
+        },
+        "correct": "A"
+    },
+    {
+        "text": "Q1.新婦知佳は、さしみやお寿司に何をつけて食べるでしょうか？",
+        "choices": {
+            "A": { "label": "しょうゆ", "img": "/static/img/syoyu2.png" },
+            "B": { "label": "しお", "img": "/static/img/salt.png" },
+            "C": { "label": "ぽん酢", "img": "/static/img/ponzu.png" },
+            "D": { "label": "何もつけない", "img": "/static/img/osara.png" }
+        },
+        "correct": "D"
+    },
+    {
+        "text": "Q2.趣味がない新郎智也は、今後何を趣味にしたいと画策しているでしょうか？",
+        "choices": {
+            "A": { "label": "囲碁", "img": "/static/img/igo.jpeg" },
+            "B": { "label": "サックス", "img": "/static/img/sax2.png" },
+            "C": { "label": "フットサル", "img": "/static/img/soccer.png" },
+            "D": { "label": "ラグビー", "img": "/static/img/rugby.png" }
+        },
+        "correct": "B"
+    },
+    {
+        "text": "Q3.交際の契約はとある車の中で行われた。その車種とは？",
+        "choices": {
+            "A": { "label": "BMW", "img": "/static/img/bmw.jpeg" },
+            "B": { "label": "ベンツ", "img": "/static/img/benz.jpg" },
+            "C": { "label": "レンタカー", "img": "/static/img/rent2.jpg" },
+            "D": { "label": "LEXUS", "img": "/static/img/lexus.jpg" }
+        },
+        "correct": "C"
+    },
+    {
+        "text": "Q4.プロポーズに対する知佳の返事は次のうちのどれでしょう？",
+        "choices": {
+            "A": { "label": "「はい、お願いします」", "img": null },
+            "B": { "label": "「おっけー」", "img": null },
+            "C": { "label": "「・・・」", "img": null },
+            "D": { "label": "「ごめんなさい」", "img": null }
+        },
+        "correct": "C"
+    },
+    {
+        "text": "Q5.新郎新婦に伝えたい言葉は次のうちどれですか？",
+        "choices": {
+            "A": { "label": "「おめでとう！」", "img": null },
+            "B": { "label": "「お幸せに！」", "img": null },
+            "C": { "label": "「知佳ちゃん、きれい！」", "img": null },
+            "D": { "label": "「智也さん、かっこいい！」", "img": null }
+        },
+        "correct": "ALL"
+    }
+]
+
